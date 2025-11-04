@@ -51,7 +51,7 @@ config = {
     'use_gui': True,
     'config_folder': 'configs',
     'global_configs': [key_config_option],
-    'screenshot_processor': make_bottom_right_black, # 在截图的时候对frame进行修改, 可选
+    # 'screenshot_processor': make_bottom_right_black, # 在截图的时候对frame进行修改, 可选
     'gui_icon': 'icons/icon.png',
     'wait_until_before_delay': 0,
     'wait_until_check_delay': 0,
@@ -63,12 +63,12 @@ config = {
         }
     },
     'windows': {  # required  when supporting windows game
-        'exe': 'StarRail.exe',
+        'exe': 'EM-Win64-Shipping.exe',
         # 'hwnd_class': 'UnrealWindow', #增加重名检查准确度
         'interaction': 'Genshin', #支持大多数PC游戏后台点击
         'can_bit_blt': True,  # default false, opengl games does not support bit_blt
         'bit_blt_render_full': True,
-        'check_hdr': True, #当用户开启AutoHDR时候提示用户, 但不禁止使用
+        'check_hdr': False, #当用户开启AutoHDR时候提示用户, 但不禁止使用
         'force_no_hdr': False, #True=当用户开启AutoHDR时候禁止使用
         'require_bg': True # 要求使用后台截图
     },
