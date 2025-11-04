@@ -89,11 +89,11 @@ config = {
     },
     'links': {
             'default': {
-                'github': 'https://github.com/ok-oldking/ok-script-boilerplate',
-                'discord': 'https://discord.gg/vVyCatEBgA',
-                'sponsor': 'https://www.paypal.com/ncp/payment/JWQBH7JZKNGCQ',
-                'share': 'Download from https://github.com/ok-oldking/ok-script-boilerplate',
-                'faq': 'https://github.com/ok-oldking/ok-script-boilerplate'
+                'github': 'https://github.com/aximoliya/ok-dna',
+                'discord': 'https://discord.gg/placeholder',
+                'sponsor': 'https://www.paypal.com/placeholder',
+                'share': 'Download from https://github.com/aximoliya/ok-dna',
+                'faq': 'https://github.com/aximoliya/ok-dna'
             }
         },
     'screenshots_folder': "screenshots", #截图存放目录, 每次重新启动会清空目录

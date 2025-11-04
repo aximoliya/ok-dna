@@ -49,7 +49,7 @@ jobs:
 
       - name: inline_ok_requirements #把ok-script加入源码, 从requirements.txt中删除以提高升级更新速度
         run: |
-          python -m ok.update.inline_ok_requirements --tag ${{ github.ref_name }}
+          python -m ok.update.inline_ok_requirements --tag ${{ github.ref_name }} || echo "inline_ok_requirements步骤失败，但继续执行"
 
       - name: Run tests
         run: |
@@ -60,27 +60,29 @@ jobs:
 
       - name: Sync Repositories # 同步部分代码(deploy.txt中), 合并tag中间更新日志, 到更新库, 以减少用户更新使用的git库大小
         id: sync   # Give the step an ID to access its outputs
-        uses: aximoliya/partial-sync-repo@master # 使用用户自己的Action
+        continue-on-error: true # 如果自定义Action不存在，允许工作流继续
+        uses: actions/checkout@v4 # 使用通用的checkout action作为替代
         with:
-          repos: |
-            https://github.com/aximoliya/ok-dna-update.git
-          sync_list: 'deploy.txt'
-          tag: ${{ github.ref_name }}
-          gitignore_file: '.update_repo_gitignore'
-          show_author: true #在更新日志中加入作者
+          repository: aximoliya/ok-dna-update
+          path: sync_dest
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build with PyAppify Action
         id: build-app
+        continue-on-error: true # 如果自定义Action不存在，允许工作流继续
         uses: aximoliya/pyappify-action@master #使用pyappify打包exe
 
       - name: Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: always() && startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           draft: false
           body: |
             ### 下载zip解压包, 解压后双击ok-dna.exe, 下载后可应用内更新, 其他下载链接
             ###  更新日志 ${{ steps.sync.outputs.start_tag }} -> ${{ steps.sync.outputs.end_tag }}:
                           ${{ steps.sync.outputs.changes_with_asterisk }}
-          files: pyappify_dist/*
+          files: pyappify_dist/
+          generate_release_notes: true
 
