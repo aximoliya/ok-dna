@@ -3,7 +3,7 @@ import os
 import numpy as np
 from ok import ConfigOption
 
-version = "v0.0.1"
+version = "dev"
 
 key_config_option = ConfigOption('Game Hotkey Config', { #全局配置示例
     'Echo Key': 'q',
