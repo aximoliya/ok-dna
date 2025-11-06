@@ -24,6 +24,7 @@ update.bat
 click_screenshots/
 test_scripts/
 screenshots/
+ok-script-master/
 thread_dumps.txt
 # C extensions
 *.so
@@ -65,4 +66,3 @@ pip-delete-this-directory.txt
 autohelper
 working_images/
 
-ok-scripts-master/
