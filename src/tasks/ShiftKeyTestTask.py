@@ -9,253 +9,232 @@ import time
 import win32gui
 from src.tasks.MyBaseTask import MyBaseTask
 
+# 尝试导入pynput，如果失败则设为None
+try:
+    from pynput.keyboard import Controller, Key
+    PYNPUT_AVAILABLE = True
+except ImportError:
+    Controller = None
+    Key = None
+    PYNPUT_AVAILABLE = False
+
+
 class ShiftKeyTestTask(MyBaseTask):
     """Shift键测试任务 - 前台pynput解决方案"""
+    
+    # 常量定义
+    DEFAULT_DOWN_TIME = 0.2  # 默认按键按下时间（秒）
+    WINDOW_ACTIVATE_DELAY = 1.0  # 窗口激活后等待时间（秒）
+    TEST_INTERVAL = 1.0  # 测试间隔时间（秒）
+    
+    # 游戏窗口标题关键词
+    GAME_WINDOW_KEYWORDS = ['二重螺旋', '游戏', 'Game']
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = "Shift键测试任务（前台模式）"
         self.description = "使用前台pynput方法测试shift键，确保游戏窗口在前台"
         self.game_hwnd = None
-        # 初始化配置，确保_log方法正常工作
-        if not hasattr(self, 'config') or self.config is None:
-            self.config = {"启用日志": True}
+        self.keyboard = None
+        
         # 初始化pynput键盘控制器
-        try:
-            from pynput.keyboard import Controller
-            self.keyboard = Controller()
-        except ImportError:
-            self.log_info("⚠ pynput库未安装，将使用标准方法")
+        self._init_keyboard()
+    
+    def _init_keyboard(self):
+        """初始化pynput键盘控制器"""
+        if PYNPUT_AVAILABLE:
+            try:
+                self.keyboard = Controller()
+                self.log_info("✓ pynput键盘控制器初始化成功", notify=False)
+            except Exception as e:
+                self.log_info(f"⚠ pynput键盘控制器初始化失败: {str(e)}", notify=False)
+                self.keyboard = None
+        else:
+            self.log_info("⚠ pynput库未安装，将使用标准方法", notify=False)
             self.keyboard = None
     
     def run(self):
         """运行任务"""
-        self.log_info("开始Shift键测试任务（前台模式）")
+        self.log_info("开始Shift键测试任务（前台模式）", notify=True)
         
-        # 确保游戏窗口在前台
-        if not self.ensure_game_foreground():
-            self.log_info("❌ 无法确保游戏窗口在前台，任务终止")
-            return
-        
-        # 测试shift键
-        self.test_shift_key()
-        
-        # 测试组合键
-        self.test_combination_keys()
-        
-        self.log_info("✅ Shift键测试任务完成")
+        try:
+            # 确保游戏窗口在前台
+            if not self.ensure_game_foreground():
+                self.log_info("❌ 无法确保游戏窗口在前台，任务终止", notify=True)
+                return
+            
+            # 测试shift键
+            self.test_shift_key()
+            
+            self.log_info("✅ Shift键测试任务完成", notify=True)
+        except Exception as e:
+            self.log_info(f"❌ 任务执行出错: {str(e)}", notify=True)
+            raise
     
     def ensure_game_foreground(self):
-        """确保游戏窗口在前台"""
-        self.log_info("检查游戏窗口状态...")
+        """确保游戏窗口在前台
+        
+        Returns:
+            bool: 如果游戏窗口在前台或成功激活，返回True；否则返回False
+        """
+        self.log_info("检查游戏窗口状态...", notify=False)
         
         # 查找游戏窗口
+        game_window = self._find_game_window()
+        if not game_window:
+            self.log_info("❌ 未找到游戏窗口", notify=False)
+            return False
+        
+        self.game_hwnd, title = game_window
+        self.log_info(f"找到游戏窗口: {title} (句柄: {self.game_hwnd})", notify=False)
+        
+        # 检查窗口是否已在前台
+        if self._is_foreground():
+            self.log_info("✓ 游戏窗口已在前台", notify=False)
+            return True
+        
+        # 尝试激活窗口
+        self.log_info("⚠ 游戏窗口不在前台，尝试激活...", notify=False)
+        return self._activate_window()
+    
+    def _find_game_window(self):
+        """查找游戏窗口
+        
+        Returns:
+            tuple: (hwnd, title) 或 None
+        """
         windows = []
+        
         def enum_windows_proc(hwnd, _):
             if win32gui.IsWindowVisible(hwnd):
                 title = win32gui.GetWindowText(hwnd)
-                if title and ('二重螺旋' in title or '游戏' in title or 'Game' in title):
+                if title and any(keyword in title for keyword in self.GAME_WINDOW_KEYWORDS):
                     windows.append((hwnd, title))
             return True
         
         win32gui.EnumWindows(enum_windows_proc, None)
+        return windows[0] if windows else None
+    
+    def _is_foreground(self):
+        """检查游戏窗口是否在前台
         
-        if not windows:
-            self.log_info("❌ 未找到游戏窗口")
+        Returns:
+            bool: 如果游戏窗口在前台，返回True
+        """
+        if self.game_hwnd is None:
             return False
+        return win32gui.GetForegroundWindow() == self.game_hwnd
+    
+    def _activate_window(self):
+        """激活游戏窗口到前台
         
-        self.game_hwnd, title = windows[0]
-        self.log_info(f"找到游戏窗口: {title} (句柄: {self.game_hwnd})")
-        
-        # 检查窗口是否在前台
-        foreground_hwnd = win32gui.GetForegroundWindow()
-        if foreground_hwnd == self.game_hwnd:
-            self.log_info("✓ 游戏窗口已在前台")
-            return True
-        else:
-            self.log_info("⚠ 游戏窗口不在前台，尝试激活...")
-            
-            # 尝试激活窗口
+        Returns:
+            bool: 如果成功激活，返回True；否则返回False
+        """
+        try:
             win32gui.SetForegroundWindow(self.game_hwnd)
-            time.sleep(1)
+            time.sleep(self.WINDOW_ACTIVATE_DELAY)
             
             # 再次检查
-            foreground_hwnd = win32gui.GetForegroundWindow()
-            if foreground_hwnd == self.game_hwnd:
-                self.log_info("✓ 游戏窗口已激活到前台")
+            if self._is_foreground():
+                self.log_info("✓ 游戏窗口已激活到前台", notify=False)
                 return True
             else:
-                self.log_info("❌ 无法激活游戏窗口到前台")
-                self.log_info(f"当前前台窗口: {win32gui.GetWindowText(foreground_hwnd)}")
+                current_title = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+                self.log_info(f"❌ 无法激活游戏窗口到前台", notify=False)
+                self.log_info(f"当前前台窗口: {current_title}", notify=False)
                 return False
+        except Exception as e:
+            self.log_info(f"❌ 激活窗口时出错: {str(e)}", notify=False)
+            return False
     
     def test_shift_key(self):
-        """测试shift键 - 使用标准方法"""
-        self.log_info("测试shift键...")
+        """测试shift键 - 使用两种方法测试"""
+        self.log_info("开始测试shift键...", notify=False)
         
         # 确保窗口在前台
         if not self.check_foreground():
+            self.log_info("⚠ 警告：游戏窗口不在前台，测试可能无效", notify=False)
             return
         
         # 方法1: 使用标准方法发送shift键
-        self.log_info("方法1: 使用标准方法发送shift键")
-        self.do_send_key_shift()
-        time.sleep(1)
+        self.log_info("方法1: 使用标准方法发送shift键", notify=False)
+        self._send_shift_standard(self.DEFAULT_DOWN_TIME)
+        self.sleep(self.TEST_INTERVAL)
         
-        # 方法2: 使用便捷方法
-        self.log_info("方法2: 使用便捷方法发送shift键")
+        # 方法2: 使用便捷方法（pynput）
+        self.log_info("方法2: 使用便捷方法发送shift键", notify=False)
         self.send_shift()
-        time.sleep(1)
+        self.sleep(self.TEST_INTERVAL)
         
-        # 方法3: 测试组合键
-        self.log_info("方法3: 测试shift+W组合键")
-        self.send_w_with_shift()
-        time.sleep(1)
-    
-    def test_combination_keys(self):
-        """测试组合键 - 使用标准方法"""
-        self.log_info("测试组合键...")
-        
-        # 确保窗口在前台
-        if not self.check_foreground():
-            return
-        
-        # 测试所有shift组合键
-        combinations = [
-            ("W", self.send_w_with_shift),
-            ("A", self.send_a_with_shift),
-            ("S", self.send_s_with_shift),
-            ("D", self.send_d_with_shift),
-        ]
-        
-        for key_name, method in combinations:
-            self.log_info(f"测试shift+{key_name}组合键")
-            if method():
-                self.log_info(f"✓ shift+{key_name}组合键测试成功")
-            else:
-                self.log_info(f"❌ shift+{key_name}组合键测试失败")
-            time.sleep(1)
+        self.log_info("✓ shift键测试完成", notify=False)
     
     def check_foreground(self):
-        """检查窗口是否在前台"""
-        if self.game_hwnd is None:
-            return False
+        """检查窗口是否在前台
         
-        foreground_hwnd = win32gui.GetForegroundWindow()
-        if foreground_hwnd != self.game_hwnd:
-            self.log_info("⚠ 警告：游戏窗口不在前台，按键可能无效")
-            return False
-        
-        return True
+        Returns:
+            bool: 如果游戏窗口在前台，返回True
+        """
+        return self._is_foreground()
     
     # ========== 便捷方法 ==========
     
-    def send_shift(self):
-        """发送shift键（按下并抬起）"""
-        if self.check_foreground():
-            # 使用pynput直接发送shift键（更可靠）
-            self.log_info("使用pynput直接发送shift键...")
-            try:
-                from pynput.keyboard import Key
-                self.keyboard.press(Key.shift)
-                time.sleep(0.2)  # 增加按下时间
-                self.keyboard.release(Key.shift)
-                self.log_info("✓ pynput直接发送shift键成功")
-                return True
-            except Exception as e:
-                self.log_info(f"⚠ pynput发送失败: {str(e)}")
-                # 失败时回退到标准方法
-                self.log_info("回退到标准方法...")
-                self.do_send_key_shift(down_time=0.2)  # 增加按下时间
-                return True
-        return False
-    
-    def send_shift_down(self):
-        """按下shift键"""
-        if self.check_foreground():
-            try:
-                from pynput.keyboard import Key
-                self.keyboard.press(Key.shift)
-                self.log_info("✓ pynput shift键按下")
-                return True
-            except Exception:
-                # 回退到标准方法
-                self.do_send_key_down('SHIFT')
-                return True
-        return False
-    
-    def send_shift_up(self):
-        """抬起shift键"""
-        if self.check_foreground():
-            try:
-                from pynput.keyboard import Key
-                self.keyboard.release(Key.shift)
-                self.log_info("✓ pynput shift键释放")
-                return True
-            except Exception:
-                # 回退到标准方法
-                self.do_send_key_up('SHIFT')
-                return True
-        return False
-    
-    def send_key_with_shift(self, key):
-        """发送shift+指定键的组合键"""
-        if self.check_foreground():
-            self.log_info(f"发送shift+{key}组合键...")
-            try:
-                from pynput.keyboard import Key
-                # 使用pynput的上下文管理器发送组合键
-                with self.keyboard.pressed(Key.shift):
-                    self.keyboard.press(key)
-                    time.sleep(0.1)
-                    self.keyboard.release(key)
-                    time.sleep(0.1)
-                self.log_info(f"✓ shift+{key}组合键发送成功")
-                return True
-            except Exception as e:
-                self.log_info(f"⚠ pynput组合键失败: {str(e)}")
-                # 回退到分步方法
-                self.send_shift_down()
-                self.send_key(key)
-                self.send_shift_up()
-                return True
-        return False
-    
-    def send_w_with_shift(self):
-        """发送shift+W组合键"""
-        return self.send_key_with_shift('w')
-    
-    def send_a_with_shift(self):
-        """发送shift+A组合键"""
-        return self.send_key_with_shift('a')
-    
-    def send_s_with_shift(self):
-        """发送shift+S组合键"""
-        return self.send_key_with_shift('s')
-    
-    def send_d_with_shift(self):
-        """发送shift+D组合键"""
-        return self.send_key_with_shift('d')
-    
-    def send_key(self, key):
-        """发送单个键 - 使用标准方法"""
-        if self.check_foreground():
-            # 对于普通按键，使用标准方法
-            if len(key) == 1 and key.isalpha():
-                self.do_send_key_down(key.upper())
-                self.sleep(0.1)  # 短暂的按键时间
-                self.do_send_key_up(key.upper())
-            else:
-                # 对于特殊按键，使用MyBaseTask的标准方法
-                self.do_send_key_down(key)
-                self.sleep(0.1)
-                self.do_send_key_up(key)
+    def send_shift(self, down_time=None):
+        """发送shift键（按下并抬起）
+        
+        Args:
+            down_time (float, optional): 按键按下时间（秒），默认使用 DEFAULT_DOWN_TIME
+        
+        Returns:
+            bool: 如果成功发送，返回True；否则返回False
+        """
+        if down_time is None:
+            down_time = self.DEFAULT_DOWN_TIME
+        
+        if not self.check_foreground():
+            self.log_info("⚠ 警告：游戏窗口不在前台，按键可能无效", notify=False)
+            return False
+        
+        # 优先使用pynput发送shift键（更可靠）
+        if self._send_shift_with_pynput(down_time):
             return True
-        return False
+        
+        # 回退到标准方法
+        self.log_info("使用标准方法发送shift键...", notify=False)
+        self._send_shift_standard(down_time)
+        return True
     
-    def ensure_game_active(self):
-        """确保游戏窗口激活（便捷方法）"""
-        return self.ensure_game_foreground()
+    def _send_shift_standard(self, down_time):
+        """使用标准方法发送shift键（通过do_send_key_down/up）
+        
+        Args:
+            down_time (float): 按键按下时间（秒）
+        """
+        self.do_send_key_down('SHIFT')
+        time.sleep(down_time)
+        self.do_send_key_up('SHIFT')
+    
+    def _send_shift_with_pynput(self, down_time):
+        """使用pynput发送shift键
+        
+        Args:
+            down_time (float): 按键按下时间（秒）
+        
+        Returns:
+            bool: 如果成功发送，返回True；否则返回False
+        """
+        if self.keyboard is None or not PYNPUT_AVAILABLE:
+            return False
+        
+        try:
+            self.keyboard.press(Key.shift)
+            time.sleep(down_time)
+            self.keyboard.release(Key.shift)
+            self.log_info("✓ pynput发送shift键成功", notify=False)
+            return True
+        except Exception as e:
+            self.log_info(f"⚠ pynput发送失败: {str(e)}", notify=False)
+            return False
 
 if __name__ == "__main__":
     task = ShiftKeyTestTask()

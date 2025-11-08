@@ -110,6 +110,7 @@ config = {
         ["src.tasks.MyOneTimeTask", "MyOneTimeTask"],
         ["src.tasks.MyTestTask", "MyTestTask"],
         ["src.tasks.ShiftKeyTestTask", "ShiftKeyTestTask"],
+        ["src.tasks.OpenWalnutTask", "OpenWalnutTask"],
         ["ok", "DiagnosisTask"],
     ],
     'trigger_tasks':[
