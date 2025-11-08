@@ -115,7 +115,7 @@ class OpenWalnutTask(MyBaseTask):
         Returns:
             bool: 是否成功处理
         """
-        # 使用非阻塞的OCR检测，避免在循环中长时间等待
+        
         import time
         start_time = time.time()
         while time.time() - start_time < 130:
@@ -172,7 +172,7 @@ class OpenWalnutTask(MyBaseTask):
                 time_out=self.DEFAULT_WAIT_TIMEOUT
             )
             continue_button = self.wait_ocr(
-                match="继续挑战",
+                match=["继续挑战", "○继续挑战"],
                 log=True,
                 time_out=self.DEFAULT_WAIT_TIMEOUT
             )
@@ -243,7 +243,6 @@ class OpenWalnutTask(MyBaseTask):
                 horizontal_variance=9999,
                 vertical_variance=9999,
                 time_out=self.DEFAULT_WAIT_TIMEOUT,
-                log=True
             ):
                 self.log_info(f"未找到角色密函特征: {feature_name}", notify=False)
                 return False
